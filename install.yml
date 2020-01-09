@@ -1,0 +1,76 @@
+---
+
+- hosts: localhost
+  become: true
+  tasks:
+
+    - name: upgrade all packages
+      dnf:
+        name: "*"
+        state: latest
+
+    - name: Enable RPM Fusion
+      dnf:      
+        name:
+          - "http://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-{{ hostvars[inventory_hostname].ansible_distribution_major_version }}.noarch.rpm"
+          - "http://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-{{ hostvars[inventory_hostname].ansible_distribution_major_version }}.noarch.rpm"
+
+    - name: Install Fedy
+      shell: |
+        sudo dnf -y copr enable kwizart/fedy
+        sudo dnf install fedy -y        
+      args:
+        creates: "/usr/bin/fedy"
+
+
+    - name: Install essentials
+      dnf: 
+        name:
+          - htop
+          - vim 
+          - ack
+        state: latest 
+
+    - name: Install some backgrounds
+      dnf:
+        name:
+          - f30-backgrounds-extras-gnome
+          - f31-backgrounds-extras-gnome 
+
+    - name: Install Slack
+      dnf: 
+        name: "https://downloads.slack-edge.com/linux_releases/slack-4.2.0-0.1.fc21.x86_64.rpm"
+    
+    - name: Install vs-code
+      tags: code
+      shell: |
+        sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
+        sudo sh -c 'echo -e "[code]\nname=Visual Studio Code\nbaseurl=https://packages.microsoft.com/yumrepos/vscode\nenabled=1\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc" > /etc/yum.repos.d/vscode.repo'
+        sudo dnf check-update
+        sudo dnf -y install code
+      args:
+        creates: "/usr/bin/code"
+
+
+- hosts: localhost
+  tasks:
+
+    - name: Configure frame-flash visual bell 
+      shell: |
+        gsettings set org.gnome.desktop.wm.preferences audible-bell false
+        gsettings set org.gnome.desktop.wm.preferences visual-bell true
+        gsettings set org.gnome.desktop.wm.preferences visual-bell-type frame-flash
+
+    - name: Install pipx
+      pip: 
+        name: pipx
+        extra_args: --user
+
+    - name: Install some Python apps with pipx
+      shell: |
+        pipx install --include-system-site-packages ansible  
+        pipx install ansible-lint  
+        pipx install black  
+        pipx install yamllint
+
+
