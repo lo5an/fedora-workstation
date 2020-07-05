@@ -1,5 +1,6 @@
 ---
-
+# Configure system 
+#
 - hosts: localhost
   become: true
   tasks:
@@ -17,11 +18,16 @@
 
     - name: Install Fedy
       shell: |
-        sudo dnf -y copr enable kwizart/fedy
-        sudo dnf install fedy -y        
+        dnf -y copr enable kwizart/fedy
+        dnf -y install fedy       
       args:
         creates: "/usr/bin/fedy"
 
+    - name: 
+      shell: |
+         dnf -y install  dnf-automatic
+         systemctl enable dnf-automatic-download.timer
+         systemctl start dnf-automatic-download.timer
 
     - name: Install essentials
       dnf: 
@@ -29,6 +35,7 @@
           - htop
           - vim 
           - ack
+          - ShellCheck
         state: latest 
 
     - name: Install some backgrounds
@@ -36,6 +43,7 @@
         name:
           - f30-backgrounds-extras-gnome
           - f31-backgrounds-extras-gnome 
+          - f32-backgrounds-extras-gnome 
 
     - name: Install Slack
       dnf: 
@@ -43,10 +51,10 @@
     
     - name: Install vs-code
       shell: |
-        sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
-        sudo sh -c 'echo -e "[code]\nname=Visual Studio Code\nbaseurl=https://packages.microsoft.com/yumrepos/vscode\nenabled=1\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc" > /etc/yum.repos.d/vscode.repo'
-        sudo dnf check-update
-        sudo dnf -y install code
+        rpm --import https://packages.microsoft.com/keys/microsoft.asc
+        sh -c 'echo -e "[code]\nname=Visual Studio Code\nbaseurl=https://packages.microsoft.com/yumrepos/vscode\nenabled=1\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc" > /etc/yum.repos.d/vscode.repo'
+        dnf check-update
+        dnf -y install code
       args:
         creates: "/usr/bin/code"
 
@@ -55,11 +63,57 @@
         name: go
         state: latest
 
+    - name: Install container tools
+      dnf:
+        name:
+          - podman
+          - buildah
+          - skopeo
+          - toolbox
+
+    - name: Redundantly check ansible install 
+      dnf:
+        name:
+          - ansible
+          - ansible-lint
 
 
+    - name: Install virtualization stuff
+      shell: |
+        dnf -y group install --with-optional virtualization
+        systemctl start libvirtd
+        systemctl enable libvirtd
+
+      # Might want to add check for kvm_amd module 
+      # lsmod | grep kvm
+
+    - name: Install multimedia stuff
+      shell: |
+        dnf -y install  gstreamer1-plugins-{bad-\*,good-\*,base} gstreamer1-plugin-openh264 gstreamer1-libav --exclude=gstreamer1-plugins-bad-free-devel
+        dnf -y install -y  lame\* --exclude=lame-devel
+        dnf -y group upgrade --with-optional Multimedia
+
+    - name: Install VLC
+      dnf:
+        name: vlc
+
+    - name: Install Gnome Shell Extension Stuff
+      dnf: 
+        name: 
+          - gnome-shell-extension-dash-to-dock
+          - gnome-shell-extension-appindicator      
+          - gnome-extensions-app
+
+    - name: Install Gnome Tweak Tool        
+      dnf:
+        name: 
+          - gnome-tweaks
+
+
+# Configure userland 
+#
 - hosts: localhost
   tasks:
-
     - name: Configure frame-flash visual bell 
       shell: |
         gsettings set org.gnome.desktop.wm.preferences audible-bell false
@@ -73,15 +127,5 @@
 
     - name: Install some Python apps with pipx
       shell: |
-        pipx install --include-system-site-packages ansible  
-        pipx install ansible-lint  
         pipx install black  
         pipx install yamllint
-
-    - name: Install terraform
-      unarchive:
-        src: https://releases.hashicorp.com/terraform/0.12.19/terraform_0.12.19_linux_amd64.zip
-        dest: ~/.local/bin
-        creates: ~/.local/bin/terraform
-        remote_src: yes 
-        
